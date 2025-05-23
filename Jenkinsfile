@@ -29,10 +29,9 @@ pipeline {
                         echo "Oczekiwanie na uruchomienie Juice Shop (30 sekund)..."
                         sleep 30 
 
-                        // Informacyjne sprawdzenie dostępności Juice Shop z agenta Jenkinsa
+                      
                         echo "Próba wykonania curl na ${JUICE_SHOP_URL} z agenta Jenkinsa (tylko informacyjnie)..."
-                        # Ta komenda jest wykonywana na agencie Jenkinsa. host.docker.internal może tu nie działać.
-                        # ZAP w kontenerze otrzyma ten adres poprzez --add-host.
+                    
                         curl -s -o /dev/null -w '%{http_code}' ${JUICE_SHOP_URL} || echo "Ostrzeżenie: Juice Shop może nie być bezpośrednio dostępny z agenta Jenkinsa pod adresem ${JUICE_SHOP_URL}."
                         echo "Sprawdzenie zakończone."
                     """
