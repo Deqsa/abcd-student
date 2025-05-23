@@ -27,7 +27,7 @@ pipeline {
                         docker run -d --rm --name ${JUICE_SHOP_CONTAINER_NAME} -p 3000:3000 bkimminich/juice-shop
                         
                         echo "Oczekiwanie na uruchomienie Juice Shop (30 sekund)..."
-                        sleep 30 // Proste oczekiwanie. Dla większej niezawodności, rozważ pętlę z curl.
+                        sleep 30 
 
                         // Informacyjne sprawdzenie dostępności Juice Shop z agenta Jenkinsa
                         echo "Próba wykonania curl na ${JUICE_SHOP_URL} z agenta Jenkinsa (tylko informacyjnie)..."
