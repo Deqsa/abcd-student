@@ -23,20 +23,24 @@ pipeline {
             }
         }
 
+        stage('Debug .zap directory') {
+            steps {
+                echo 'Listing .zap directory contents:'
+                sh 'ls -l .zap'
+                echo 'Listing passive.yaml file details:'
+                sh 'ls -l .zap/passive.yaml'
+            }
+        }
+
         stage('Run ZAP DAST Scan') {
             steps {
                 sh '''
-                    docker run --rm \
-                        --add-host=host.docker.internal:host-gateway \
-                        -v "$WORKSPACE/.zap:/zap/wrk" \
-                        ghcr.io/zaproxy/zaproxy:stable \
-                        zap.sh -cmd \
-                        -addonupdate \
-                        -addoninstall communityScripts \
-                        -addoninstall pscanrulesAlpha \
-                        -addoninstall pscanrulesBeta \
-                        -autorun /zap/wrk/passive.yaml \
-                        || true
+                docker run --rm --add-host=host.docker.internal:host-gateway \
+                    -v ${WORKSPACE}/.zap:/zap/wrk:ro \
+                    ghcr.io/zaproxy/zaproxy:stable \
+                    zap.sh -cmd -addonupdate -addoninstall communityScripts \
+                    -addoninstall pscanrulesAlpha -addoninstall pscanrulesBeta \
+                    -autorun /zap/wrk/passive.yaml
                 '''
             }
         }
@@ -46,8 +50,8 @@ pipeline {
         always {
             echo 'Cleaning up...'
             sh '''
-                docker container stop $JUICE_CONTAINER || true
-                docker container rm $JUICE_CONTAINER || true
+                docker container stop juice-shop || true
+                docker container rm juice-shop || true
                 mkdir -p reports
                 cp -r .zap/reports/* reports/ || true
             '''
