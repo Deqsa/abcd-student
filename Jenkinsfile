@@ -70,8 +70,7 @@ pipeline {
                 }
             }
         }
-
-        stage('Run ZAP DAST Scan') {
+stage('Run ZAP DAST Scan') {
     steps {
         script {
             sh """
@@ -85,10 +84,10 @@ pipeline {
                 echo "Plan ZAP: ${ZAP_CONFIG_DIR}/passive.yaml będzie dostępny jako /zap/wrk/passive.yaml w kontenerze."
                 echo "Raporty z ZAP powinny być zapisane w /zap/wrk/ wewnątrz kontenera (co odpowiada ${ZAP_CONFIG_DIR} na hoście)."
 
-                # IMPORTANT: Set ownership for the ZAP user (UID 1000) inside the container
-                # This ensures the 'zap' user can access the mounted files.
-                sudo chown -R 1000:1000 "${ZAP_CONFIG_DIR}"
-
+                # Set ownership for the ZAP user (UID 1000) inside the container
+                # Use a temporary alpine container to chown as root if sudo is not available.
+                docker run --rm -v "${ZAP_CONFIG_DIR}":"/data" alpine chown -R 1000:1000 /data
+                
                 # Montowanie katalogu ZAP_CONFIG_DIR jako /zap/wrk z uprawnieniami odczytu/zapisu (rw),
                 # ponieważ passive.yaml instruuje ZAP do zapisu raportów w tym samym katalogu /zap/wrk.
                 # Uruchomienie kontenera jako użytkownik 'zap'.
@@ -106,9 +105,9 @@ pipeline {
                 zap_exit_code=\$?
                 if [ \$zap_exit_code -ne 0 ]; then
                     echo "Skan ZAP zakończony z kodem wyjścia \$zap_exit_code (wystąpiły błędy)."
-                    # Możesz opcjonalnie oznaczyć build jako nieudany:
-                    # currentBuild.result = 'FAILURE'
-                    # error "Skan ZAP nie powiódł się z kodem wyjścia \$zap_exit_code"
+                    // Możesz opcjonalnie oznaczyć build jako nieudany:
+                    // currentBuild.result = 'FAILURE'
+                    // error "Skan ZAP nie powiódł się z kodem wyjścia \$zap_exit_code"
                 else
                     echo "Skan ZAP zakończony pomyślnie."
                 fi
@@ -119,7 +118,6 @@ pipeline {
         }
     }
 }
-
         stage('Archive ZAP Reports') {
             steps {
                 // Raporty są oczekiwane w ZAP_CONFIG_DIR, zgodnie z montowaniem i konfiguracją passive.yaml
