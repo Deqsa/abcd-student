@@ -23,7 +23,7 @@ pipeline {
 
      stage('Run JuiceShop'){
             steps{
-                sh 'docker run -d --rm --name juice-shop -p 3000:3000 bkimminich/juice-shop' 
+                sh 'docker run -d --rm --name nice_blackburn -p 3000:3000 bkimminich/juice-shop' 
             }
         }
 
