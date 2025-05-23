@@ -12,11 +12,13 @@ pipeline {
             }
         }
 
-     stage('Run JuiceShop') {
+      stage('Run JuiceShop') {
             steps {
                 script {
-                    sh 'docker run -d --rm --name juice-shop -p 3000:3000 bkimminich/juice-shop'
-                    sleep 10
+                    sh '''
+                        docker run -d --rm --name juice-shop -p 3000:3000 bkimminich/juice-shop
+                        sleep 10
+                    '''
                 }
             }
         }
@@ -29,6 +31,7 @@ pipeline {
                         mkdir -p ${ZAP_CONFIG_DIR}
                         cp .zap/passive.yaml ${ZAP_CONFIG_DIR}/passive.yaml
                         cp .zap/rules.tsv ${ZAP_CONFIG_DIR}/rules.tsv
+                        chmod -R a+r ${ZAP_CONFIG_DIR}
                         echo Zawartość katalogu ZAP config:
                         ls -l ${ZAP_CONFIG_DIR}
                     '''
@@ -41,16 +44,15 @@ pipeline {
                 script {
                     sh '''
                         echo Running ZAP scan...
-                        [ ! -f ${ZAP_CONFIG_DIR}/passive.yaml ] && echo "Missing passive.yaml!" && exit 1
                         docker run --rm \
-                            --add-host=host.docker.internal:host-gateway \
-                            -v ${ZAP_CONFIG_DIR}:/zap/wrk \
-                            ghcr.io/zaproxy/zaproxy:stable \
-                            zap.sh -cmd -addonupdate \
-                            -addoninstall communityScripts \
-                            -addoninstall pscanrulesAlpha \
-                            -addoninstall pscanrulesBeta \
-                            -autorun /zap/wrk/passive.yaml
+                          --add-host=host.docker.internal:host-gateway \
+                          -v ${ZAP_CONFIG_DIR}:/zap/wrk:ro \
+                          ghcr.io/zaproxy/zaproxy:stable \
+                          zap.sh -cmd -addonupdate \
+                          -addoninstall communityScripts \
+                          -addoninstall pscanrulesAlpha \
+                          -addoninstall pscanrulesBeta \
+                          -autorun /zap/wrk/passive.yaml
                     '''
                 }
             }
@@ -64,9 +66,14 @@ pipeline {
                 docker container stop juice-shop || true
                 docker container rm juice-shop || true
                 mkdir -p reports
-                [ -d .zap/reports ] && cp -r .zap/reports/* reports/
+                if [ -d .zap/reports ]; then cp -r .zap/reports/* reports/; fi
             '''
-            archiveArtifacts artifacts: 'reports/**', allowEmptyArchive: true
+        }
+        failure {
+            echo 'Pipeline failed.'
+        }
+        success {
+            echo 'Pipeline completed successfully.'
         }
     }
 }
