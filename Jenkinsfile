@@ -1,68 +1,65 @@
 pipeline {
     agent any
-    options {
-        skipDefaultCheckout(true)
+
+    environment {
+        ZAP_CONFIG_DIR = "${WORKSPACE}/zap-config"
     }
+
     stages {
         stage('Code checkout from GitHub') {
             steps {
-                script {
-                    cleanWs()
-                    git branch: 'main', credentialsId: 'github-token', url: 'https://github.com/Deqsa/abcd-student'
-
-                }
+                cleanWs()
+                git credentialsId: 'github-token', url: 'https://github.com/Deqsa/abcd-student'
             }
         }
-        
-         stage('Create reports directory') {
+
+        stage('Run JuiceShop') {
             steps {
-                sh 'mkdir reports'
-                sh 'chmod 777 reports'
+                sh '''
+                    docker run -d --rm --name juice-shop -p 3000:3000 bkimminich/juice-shop
+                    sleep 10
+                '''
             }
         }
 
-     stage('Run JuiceShop'){
-            steps{
-                sh 'docker run -d --rm --name nice_blackburn -p 3000:3000 bkimminich/juice-shop' 
-            }
-        }
-
-        stage('Debug .zap directory') {
+        stage('Prepare ZAP config') {
             steps {
-                echo 'Listing .zap directory contents:'
-                sh 'ls -l .zap'
-                echo 'Listing passive.yaml file details:'
-                sh 'ls -l .zap/passive.yaml'
+                sh '''
+                    echo "Preparing ZAP config..."
+                    mkdir -p ${ZAP_CONFIG_DIR}
+                    cp .zap/passive.yaml ${ZAP_CONFIG_DIR}/passive.yaml
+                    cp .zap/rules.tsv ${ZAP_CONFIG_DIR}/rules.tsv || true
+
+                    echo "Contents of ${ZAP_CONFIG_DIR}:"
+                    ls -l ${ZAP_CONFIG_DIR}
+                '''
             }
         }
 
-        stage('Run ZAP DAST Scan'){
-            steps{
-                sh """
+        stage('Run ZAP DAST Scan') {
+            steps {
+                sh '''
                     docker run --rm \
-                    --add-host=host.docker.internal:host-gateway \
-                    -v /var/lib/docker/volumes/abcd-lab/_data/workspace/ABCD:/zap/wrk \
-                    zaproxy/zap-stable \
-                    bash -c "\
-                        zap.sh -cmd -addonupdate; \
-                        zap.sh -cmd -addoninstall communityScripts \
-                        -addoninstall pscanrulesAlpha \
-                        -addoninstall pscanrulesBeta \
-                        -autorun /zap/wrk/.zap/passive.yaml" 
-                    """
+                        --add-host=host.docker.internal:host-gateway \
+                        -v "${ZAP_CONFIG_DIR}:/zap/wrk:ro" \
+                        ghcr.io/zaproxy/zaproxy:stable \
+                        zap.sh -cmd -addonupdate -addoninstall communityScripts -addoninstall pscanrulesAlpha -addoninstall pscanrulesBeta -autorun /zap/wrk/passive.yaml
+                '''
             }
         }
     }
 
-post {
+    post {
         always {
-            echo "Cleaning up..."
-            sh "docker container stop juice-shop || true"
-            sh "docker container rm juice-shop || true"
-            sh 'ls -la reports'
-        }
-        success {
-            archiveArtifacts artifacts: 'reports/**/*.*', fingerprint: true
+            echo 'Cleaning up...'
+            sh '''
+                docker container stop juice-shop || true
+                docker container rm juice-shop || true
+
+                mkdir -p reports
+                cp -r .zap/reports/* reports/ || true
+            '''
+            archiveArtifacts artifacts: 'reports/**', allowEmptyArchive: true
         }
     }
 }
