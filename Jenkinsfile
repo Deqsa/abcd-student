@@ -72,49 +72,53 @@ pipeline {
         }
 
         stage('Run ZAP DAST Scan') {
-            steps {
-                script {
-                    sh """
-                        echo "Sprawdzanie pliku planu ZAP przed uruchomieniem..."
-                        if [ ! -f "${ZAP_CONFIG_DIR}/passive.yaml" ]; then
-                            echo "BŁĄD KRYTYCZNY: Plik ${ZAP_CONFIG_DIR}/passive.yaml nie istnieje przed uruchomieniem skanu ZAP!"
-                            exit 1
-                        fi
+    steps {
+        script {
+            sh """
+                echo "Sprawdzanie pliku planu ZAP przed uruchomieniem..."
+                if [ ! -f "${ZAP_CONFIG_DIR}/passive.yaml" ]; then
+                    echo "BŁĄD KRYTYCZNY: Plik ${ZAP_CONFIG_DIR}/passive.yaml nie istnieje przed uruchomieniem skanu ZAP!"
+                    exit 1
+                fi
 
-                        echo "Uruchamianie skanu ZAP... Cel: ${JUICE_SHOP_URL}"
-                        echo "Plan ZAP: ${ZAP_CONFIG_DIR}/passive.yaml będzie dostępny jako /zap/wrk/passive.yaml w kontenerze."
-                        echo "Raporty z ZAP powinny być zapisane w /zap/wrk/ wewnątrz kontenera (co odpowiada ${ZAP_CONFIG_DIR} na hoście)."
+                echo "Uruchamianie skanu ZAP... Cel: ${JUICE_SHOP_URL}"
+                echo "Plan ZAP: ${ZAP_CONFIG_DIR}/passive.yaml będzie dostępny jako /zap/wrk/passive.yaml w kontenerze."
+                echo "Raporty z ZAP powinny być zapisane w /zap/wrk/ wewnątrz kontenera (co odpowiada ${ZAP_CONFIG_DIR} na hoście)."
 
-                        # Montowanie katalogu ZAP_CONFIG_DIR jako /zap/wrk z uprawnieniami odczytu/zapisu (rw),
-                        # ponieważ passive.yaml instruuje ZAP do zapisu raportów w tym samym katalogu /zap/wrk.
-                        # Uruchomienie kontenera jako użytkownik 'zap'.
-                        docker run --rm \\
-                            --add-host=host.docker.internal:host-gateway \\
-                            -v "${ZAP_CONFIG_DIR}":"/zap/wrk":rw \\
-                            -u zap \\
-                            ghcr.io/zaproxy/zaproxy:stable \\
-                            zap.sh -cmd -addonupdate \\
-                            -addoninstall communityScripts \\
-                            -addoninstall pscanrulesAlpha \\
-                            -addoninstall pscanrulesBeta \\
-                            -autorun /zap/wrk/passive.yaml
-                        
-                        zap_exit_code=\$?
-                        if [ \$zap_exit_code -ne 0 ]; then
-                            echo "Skan ZAP zakończony z kodem wyjścia \$zap_exit_code (wystąpiły błędy)."
-                            # Możesz opcjonalnie oznaczyć build jako nieudany:
-                            # currentBuild.result = 'FAILURE'
-                            # error "Skan ZAP nie powiódł się z kodem wyjścia \$zap_exit_code"
-                        else
-                            echo "Skan ZAP zakończony pomyślnie."
-                        fi
-                        
-                        echo "Zawartość katalogu ${ZAP_CONFIG_DIR} po skanie ZAP:"
-                        ls -lA ${ZAP_CONFIG_DIR}
-                    """
-                }
-            }
+                # IMPORTANT: Set ownership for the ZAP user (UID 1000) inside the container
+                # This ensures the 'zap' user can access the mounted files.
+                sudo chown -R 1000:1000 "${ZAP_CONFIG_DIR}"
+
+                # Montowanie katalogu ZAP_CONFIG_DIR jako /zap/wrk z uprawnieniami odczytu/zapisu (rw),
+                # ponieważ passive.yaml instruuje ZAP do zapisu raportów w tym samym katalogu /zap/wrk.
+                # Uruchomienie kontenera jako użytkownik 'zap'.
+                docker run --rm \\
+                    --add-host=host.docker.internal:host-gateway \\
+                    -v "${ZAP_CONFIG_DIR}":"/zap/wrk":rw \\
+                    -u zap \\
+                    ghcr.io/zaproxy/zaproxy:stable \\
+                    zap.sh -cmd -addonupdate \\
+                    -addoninstall communityScripts \\
+                    -addoninstall pscanrulesAlpha \\
+                    -addoninstall pscanrulesBeta \\
+                    -autorun /zap/wrk/passive.yaml
+                
+                zap_exit_code=\$?
+                if [ \$zap_exit_code -ne 0 ]; then
+                    echo "Skan ZAP zakończony z kodem wyjścia \$zap_exit_code (wystąpiły błędy)."
+                    # Możesz opcjonalnie oznaczyć build jako nieudany:
+                    # currentBuild.result = 'FAILURE'
+                    # error "Skan ZAP nie powiódł się z kodem wyjścia \$zap_exit_code"
+                else
+                    echo "Skan ZAP zakończony pomyślnie."
+                fi
+                
+                echo "Zawartość katalogu ${ZAP_CONFIG_DIR} po skanie ZAP:"
+                ls -lA ${ZAP_CONFIG_DIR}
+            """
         }
+    }
+}
 
         stage('Archive ZAP Reports') {
             steps {
