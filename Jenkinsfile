@@ -96,18 +96,16 @@ pipeline {
         }
     }
 
-    post {
+post {
         always {
-            stage('Stop JuiceShop') {
-                steps {
-                    script {
-                        // Zawsze próbuj zatrzymać kontener Juice Shop
-                        sh "echo 'Stopping JuiceShop container...' && docker stop ${JUICE_SHOP_CONTAINER_NAME} || echo 'JuiceShop container not found or already stopped.'"
-                    }
-                }
+            // Bezpośrednio kroki, bez dodatkowego 'stage'
+            script {
+                echo 'Executing post-build cleanup actions...'
+                // Zawsze próbuj zatrzymać kontener Juice Shop
+                sh "echo 'Stopping JuiceShop container (${JUICE_SHOP_CONTAINER_NAME})...' && docker stop ${JUICE_SHOP_CONTAINER_NAME} || echo 'JuiceShop container (${JUICE_SHOP_CONTAINER_NAME}) not found or already stopped.'"
             }
             // Clean up workspace
             cleanWs()
+            echo 'Workspace cleaned up.'
         }
     }
-}
