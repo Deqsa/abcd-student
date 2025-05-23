@@ -88,6 +88,9 @@ stage('Run ZAP DAST Scan') {
                 # Use a temporary alpine container to chown as root if sudo is not available.
                 docker run --rm -v "${ZAP_CONFIG_DIR}":"/data" alpine chown -R 1000:1000 /data
                 
+                echo "Verifying ownership of ZAP config directory after chown:"
+                ls -la "${ZAP_CONFIG_DIR}" # Using -la to show all files and their permissions/ownership
+
                 # Montowanie katalogu ZAP_CONFIG_DIR jako /zap/wrk z uprawnieniami odczytu/zapisu (rw),
                 # ponieważ passive.yaml instruuje ZAP do zapisu raportów w tym samym katalogu /zap/wrk.
                 # Uruchomienie kontenera jako użytkownik 'zap'.
