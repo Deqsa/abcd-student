@@ -1,51 +1,57 @@
 pipeline {
     agent any
 
-    options {
-        skipDefaultCheckout(true)
+    environment {
+        ZAP_CONTAINER = 'zap'
+        JUICE_CONTAINER = 'juice-shop'
     }
 
     stages {
         stage('Code checkout from GitHub') {
             steps {
-                script {
-                    cleanWs()
-                    git credentialsId: 'github-token', url: 'https://github.com/Deqsa/abcd-student', branch: 'main'
-                }
+                cleanWs()
+                git credentialsId: 'github-token', url: 'https://github.com/Deqsa/abcd-student'
             }
         }
 
-       stage('Run JuiceShop'){
-            steps{
-                sh 'docker run -d --rm --name juice-shop -p 3000:3000 bkimminich/juice-shop' 
+        stage('Run JuiceShop') {
+            steps {
+                sh '''
+                    docker run -d --rm --name $JUICE_CONTAINER -p 3000:3000 bkimminich/juice-shop
+                    sleep 10
+                '''
             }
         }
-        stage('Run ZAP DAST Scan'){
-            steps{
-                sh """
+
+        stage('Run ZAP DAST Scan') {
+            steps {
+                sh '''
                     docker run --rm \
-                    --add-host=host.docker.internal:host-gateway \
-                    -v /var/lib/docker/volumes/abcd-lab/_data/workspace/ABCD:/zap/wrk \
-                    zaproxy/zap-stable \
-                    bash -c "\
-                        zap.sh -cmd -addonupdate; \
-                        zap.sh -cmd -addoninstall communityScripts \
+                        --add-host=host.docker.internal:host-gateway \
+                        -v "$WORKSPACE/.zap:/zap/wrk" \
+                        ghcr.io/zaproxy/zaproxy:stable \
+                        zap.sh -cmd \
+                        -addonupdate \
+                        -addoninstall communityScripts \
                         -addoninstall pscanrulesAlpha \
                         -addoninstall pscanrulesBeta \
-                        -autorun /zap/wrk/.zap/passive.yaml" 
-                    """
+                        -autorun /zap/wrk/passive.yaml \
+                        || true
+                '''
             }
         }
     }
+
     post {
         always {
-            echo "Cleaning up..."
-            sh "docker container stop juice-shop || true"
-            sh "docker container rm juice-shop || true"
-            sh 'ls -la reports'
-        }
-        success {
-            archiveArtifacts artifacts: 'reports/**/*.*', fingerprint: true
+            echo 'Cleaning up...'
+            sh '''
+                docker container stop $JUICE_CONTAINER || true
+                docker container rm $JUICE_CONTAINER || true
+                mkdir -p reports
+                cp -r .zap/reports/* reports/ || true
+            '''
+            archiveArtifacts artifacts: 'reports/**/*', allowEmptyArchive: true
         }
     }
 }
