@@ -9,7 +9,7 @@ pipeline {
         stage('Code checkout from GitHub') {
             steps {
                 cleanWs()
-                git credentialsId: 'github-token', url: 'https://github.com/Deqsa/abcd-student'
+                git credentialsId: 'github-token', url: 'https://github.com/Deqsa/abcd-student', branch: 'main'
             }
         }
 
