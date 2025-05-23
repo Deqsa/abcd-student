@@ -15,53 +15,37 @@ pipeline {
             }
         }
 
-        stage('[ZAP] Baseline passive-scan') {
-            steps {
-                script {
-                    sh 'mkdir -p results/'
-
-                    // Upewniamy się, że nie ma kolidujących kontenerów
-                    sh 'docker rm -f juice-shop || true'
-                    sh 'docker rm -f zap || true'
-
-                    // Uruchamiamy aplikację Juice Shop
-                    sh '''
-                        docker run -d --name juice-shop \
-                            -p 3000:3000 \
-                            bkimminich/juice-shop
-                        sleep 10
-                    '''
-
-                    // Uruchamiamy ZAP z konfiguracją z .zap/passive.yaml
-                    sh '''
-                        docker run --name zap \
-                            --add-host=host.docker.internal:host-gateway \
-                            -v "$PWD/.zap:/zap/wrk/:rw" \
-                            ghcr.io/zaproxy/zaproxy:stable \
-                            zap.sh -cmd -addonupdate -addoninstall communityScripts -addoninstall pscanrulesAlpha -addoninstall pscanrulesBeta \
-                            -autorun /zap/wrk/passive.yaml || true
-                    '''
-                }
+       stage('Run JuiceShop'){
+            steps{
+                sh 'docker run -d --rm --name juice-shop -p 3000:3000 bkimminich/juice-shop' 
             }
-
-            post {
-                always {
-                    script {
-                        // Zgrywamy raporty
-                        sh '''
-                            docker cp zap:/zap/wrk/reports/zap_html_report.html results/zap_html_report.html || true
-                            docker cp zap:/zap/wrk/reports/zap_xml_report.xml results/zap_xml_report.xml || true
-                        '''
-
-                        // Sprzątamy kontenery
-                        sh 'docker rm -f zap || true'
-                        sh 'docker rm -f juice-shop || true'
-                    }
-
-                    // Archiwizujemy raporty
-                    archiveArtifacts artifacts: 'results/*.html, results/*.xml', allowEmptyArchive: true
-                }
+        }
+        stage('Run ZAP DAST Scan'){
+            steps{
+                sh """
+                    docker run --rm \
+                    --add-host=host.docker.internal:host-gateway \
+                    -v /var/lib/docker/volumes/abcd-lab/_data/workspace/ABCD:/zap/wrk \
+                    zaproxy/zap-stable \
+                    bash -c "\
+                        zap.sh -cmd -addonupdate; \
+                        zap.sh -cmd -addoninstall communityScripts \
+                        -addoninstall pscanrulesAlpha \
+                        -addoninstall pscanrulesBeta \
+                        -autorun /zap/wrk/.zap/passive.yaml" 
+                    """
             }
+        }
+    }
+    post {
+        always {
+            echo "Cleaning up..."
+            sh "docker container stop juice-shop || true"
+            sh "docker container rm juice-shop || true"
+            sh 'ls -la reports'
+        }
+        success {
+            archiveArtifacts artifacts: 'reports/**/*.*', fingerprint: true
         }
     }
 }
