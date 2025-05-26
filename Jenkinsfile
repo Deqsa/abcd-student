@@ -13,7 +13,7 @@ pipeline {
             }
         }
 
-   stages {
+   
         stage('[ZAP] Baseline passive-scan') {
             steps {
                 script {
@@ -41,8 +41,8 @@ pipeline {
                 }
             }
         }
-    }
-}
+    
+
     post {
         always {
             sh '''
