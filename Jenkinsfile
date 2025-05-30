@@ -1,4 +1,4 @@
-pipeline {
+pipeline {More actions
     agent any
     options {
         skipDefaultCheckout(true)
@@ -13,7 +13,7 @@ pipeline {
             }
         }
 
-   stages {
+
         stage('[ZAP] Baseline passive-scan') {
             steps {
                 script {
@@ -27,22 +27,26 @@ pipeline {
 
                     // Uruchomienie ZAP i wykorzystanie passive.yaml z repozytorium
                     sh """
-                        docker run --name zap \
+                         docker run --name zap --rm \
                             --add-host=host.docker.internal:host-gateway \
-                            -v "$WORKSPACE/.zap/":/zap/.zap/:ro \
+                            -v "/mnt/c/Users/Don/Documents/GitHub/abcd-student/.zap/passive.yaml:/zap/.zap/passive.yaml:ro" \
+                            -v "/mnt/c/Users/Don/zap-output:/zap/wrk" \
                             -t ghcr.io/zaproxy/zaproxy:stable bash -c \
                             "zap.sh -cmd -addonupdate && \
                              zap.sh -cmd -addoninstall communityScripts && \
                              zap.sh -cmd -addoninstall pscanrulesAlpha && \
                              zap.sh -cmd -addoninstall pscanrulesBeta && \
-                             zap.sh -cmd -autorun /zap/.zap/passive.yaml" \
+                             zap.sh -cmd -autorun /zap/.zap/passive.yaml"
                             || true
                     """
                 }
             }
         }
     }
-}
+
+
+
+Add commentMore actions
     post {
         always {
             sh '''
