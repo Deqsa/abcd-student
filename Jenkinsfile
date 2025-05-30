@@ -12,7 +12,7 @@ pipeline {
                 git credentialsId: 'github-token', url: 'https://github.com/Deqsa/abcd-student', branch: 'main'
             }
         }
-
+/*
         stage('[ZAP] Passive Scan') {
             steps {
                 script {
@@ -40,11 +40,12 @@ pipeline {
                 }
             }
         }
-
+*/
         stage('[TruffleHog] Secret Scan') {
             steps {
                 sh '''
-                    trufflehog git --branch main --json . > /mnt/c/Users/Don/zap-output/trufflehog-report.json
+                    mkdir -p ${WORKSPACE}/zap-output
+trufflehog git --branch main --json . > ${WORKSPACE}/zap-output/trufflehog-report.json
                 '''
                 archiveArtifacts artifacts: '/mnt/c/Users/Don/zap-output/trufflehog-report.json', fingerprint: true
             }
