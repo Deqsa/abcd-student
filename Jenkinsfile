@@ -1,68 +1,74 @@
 pipeline {
     agent any
+
     options {
         skipDefaultCheckout(true)
     }
 
     stages {
-        stage('Code checkout from GitHub') {
+        stage('Checkout Code from GitHub') {
             steps {
                 cleanWs()
-                // Upewnij się, że gałąź jest poprawna (np. 'main' lub 'master')
                 git credentialsId: 'github-token', url: 'https://github.com/Deqsa/abcd-student', branch: 'main'
             }
         }
 
-        stage('[ZAP] Baseline passive-scan') {
+        stage('[ZAP] Passive Scan') {
             steps {
                 script {
-                    // Uruchomienie juice-shop jako cel testowy
                     sh '''
                         docker run --name juice-shop -d --rm \
                             -p 3000:3000 \
                             bkimminich/juice-shop
-                        sleep 5
+                        sleep 10
                     '''
 
-                    // Uruchomienie ZAP i wykorzystanie passive.yaml z repozytorium
-                    sh """
-                         docker run --name zap --rm \
-        --add-host=host.docker.internal:host-gateway \
-        -v "/mnt/c/Users/Don/Documents/GitHub/abcd-student/.zap/passive.yaml:/zap/.zap/passive.yaml:ro" \
-        -v "/mnt/c/Users/Don/zap-output:/zap/wrk" \
-        -t ghcr.io/zaproxy/zaproxy:stable bash -c \
-        "mkdir -p /zap/wrk/reports && \
-         zap.sh -cmd -addonupdate && \
-         zap.sh -cmd -addoninstall communityScripts && \
-         zap.sh -cmd -addoninstall pscanrulesAlpha && \
-         zap.sh -cmd -addoninstall pscanrulesBeta && \
-         zap.sh -cmd -autorun /zap/.zap/passive.yaml"
-                    """
+                    sh '''
+                        docker run --name zap --rm \
+                            --add-host=host.docker.internal:host-gateway \
+                            -v "/mnt/c/Users/Don/Documents/GitHub/abcd-student/.zap/passive.yaml:/zap/.zap/passive.yaml:ro" \
+                            -v "/mnt/c/Users/Don/zap-output:/zap/wrk/reports" \
+                            ghcr.io/zaproxy/zaproxy:stable bash -c '
+                                mkdir -p /zap/wrk/reports && \
+                                zap.sh -cmd -addonupdate && \
+                                zap.sh -cmd -addoninstall communityScripts && \
+                                zap.sh -cmd -addoninstall pscanrulesAlpha && \
+                                zap.sh -cmd -addoninstall pscanrulesBeta && \
+                                zap.sh -cmd -autorun /zap/.zap/passive.yaml
+                            '
+                    '''
                 }
             }
         }
-     stage('[TH] Trufflehog Scan') {
+
+        stage('[TruffleHog] Secret Scan') {
             steps {
-                sh 'trufflehog git file://$PWD --branch main --json > reports/trufflehog_json_report.json'
+                sh '''
+                    trufflehog git --branch main --json . > /mnt/c/Users/Don/zap-output/trufflehog-report.json
+                '''
+                archiveArtifacts artifacts: '/mnt/c/Users/Don/zap-output/trufflehog-report.json', fingerprint: true
             }
         }
-        stage('[SEM] Semgrep Scan') {
+
+        stage('[Semgrep] Static Code Analysis') {
             steps {
-                sh 'semgrep scan --config auto --json-output=reports/semgrep_json_report.json'
+                sh '''
+                    semgrep --config p/default --json --output /mnt/c/Users/Don/zap-output/semgrep-report.json
+                '''
+                archiveArtifacts artifacts: '/mnt/c/Users/Don/zap-output/semgrep-report.json', fingerprint: true
             }
         }
     }
 
+    post {
+        always {
+            script {
+                sh 'docker stop juice-shop || true'
+                sh 'docker stop zap || true'
+                sh 'docker rm zap || true'
+            }
 
-
-post {
-    always {
-        script {
-            sh 'docker stop juice-shop || true'
-            sh 'docker stop zap || true'
-            sh 'docker rm zap || true'
+            archiveArtifacts artifacts: '/mnt/c/Users/Don/zap-output/**/*.*', fingerprint: true
         }
-        archiveArtifacts artifacts: 'reports/**/*.*', fingerprint: true
     }
-}
 }
