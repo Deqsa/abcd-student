@@ -41,6 +41,16 @@ pipeline {
                 }
             }
         }
+     stage('[TH] Trufflehog Scan') {
+            steps {
+                sh 'trufflehog git file://$PWD --branch main --json > reports/trufflehog_json_report.json'
+            }
+        }
+        stage('[SEM] Semgrep Scan') {
+            steps {
+                sh 'semgrep scan --config auto --json-output=reports/semgrep_json_report.json'
+            }
+        }
     }
 
 
