@@ -28,16 +28,16 @@ pipeline {More actions
                     // Uruchomienie ZAP i wykorzystanie passive.yaml z repozytorium
                     sh """
                          docker run --name zap --rm \
-                            --add-host=host.docker.internal:host-gateway \
-                            -v "/mnt/c/Users/Don/Documents/GitHub/abcd-student/.zap/passive.yaml:/zap/.zap/passive.yaml:ro" \
-                            -v "/mnt/c/Users/Don/zap-output:/zap/wrk" \
-                            -t ghcr.io/zaproxy/zaproxy:stable bash -c \
-                            "zap.sh -cmd -addonupdate && \
-                             zap.sh -cmd -addoninstall communityScripts && \
-                             zap.sh -cmd -addoninstall pscanrulesAlpha && \
-                             zap.sh -cmd -addoninstall pscanrulesBeta && \
-                             zap.sh -cmd -autorun /zap/.zap/passive.yaml"
-                            || true
+        --add-host=host.docker.internal:host-gateway \
+        -v "/mnt/c/Users/Don/Documents/GitHub/abcd-student/.zap/passive.yaml:/zap/.zap/passive.yaml:ro" \
+        -v "/mnt/c/Users/Don/zap-output:/zap/wrk" \
+        -t ghcr.io/zaproxy/zaproxy:stable bash -c \
+        "mkdir -p /zap/wrk/reports && \
+         zap.sh -cmd -addonupdate && \
+         zap.sh -cmd -addoninstall communityScripts && \
+         zap.sh -cmd -addoninstall pscanrulesAlpha && \
+         zap.sh -cmd -addoninstall pscanrulesBeta && \
+         zap.sh -cmd -autorun /zap/.zap/passive.yaml"
                     """
                 }
             }
@@ -46,14 +46,14 @@ pipeline {More actions
 
 
 
-Add commentMore actions
-    post {
-        always {
-            sh '''
-                        docker stop zap juice-shop
-                        docker rm zap
-                    '''
-            archiveArtifacts artifacts: 'reports/**/*.*', fingerprint: true
+post {
+    always {
+        script {
+            sh 'docker stop juice-shop || true'
+            sh 'docker stop zap || true'
+            sh 'docker rm zap || true'
         }
+        archiveArtifacts artifacts: 'reports/**/*.*', fingerprint: true
     }
+}
 }
