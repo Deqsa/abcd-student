@@ -13,40 +13,43 @@ pipeline {
             }
         }
 
-   
-stage('[ZAP] Baseline passive-scan') {
+   stages {
+        stage('[ZAP] Baseline passive-scan') {
             steps {
                 script {
+                    // Uruchomienie juice-shop jako cel testowy
                     sh '''
-                        docker run --name juice-shop -d --rm -p 3000:3000 bkimminich/juice-shop
+                        docker run --name juice-shop -d --rm \
+                            -p 3000:3000 \
+                            bkimminich/juice-shop
                         sleep 5
                     '''
 
-                    sh 'mkdir -p zap-output/reports'
-
+                    // Uruchomienie ZAP i wykorzystanie passive.yaml z repozytorium
                     sh """
-                        docker run --name zap --rm \
+                        docker run --name zap \
                             --add-host=host.docker.internal:host-gateway \
-                            -v "${env.WORKSPACE}/.zap/passive.yaml:/zap/.zap/passive.yaml:ro" \
-                            -v "${env.WORKSPACE}/zap-output:/zap/wrk:rw" \
+                            -v "$WORKSPACE/.zap/":/zap/.zap/:ro \
                             -t ghcr.io/zaproxy/zaproxy:stable bash -c \
                             "zap.sh -cmd -addonupdate && \
                              zap.sh -cmd -addoninstall communityScripts && \
                              zap.sh -cmd -addoninstall pscanrulesAlpha && \
                              zap.sh -cmd -addoninstall pscanrulesBeta && \
-                             zap.sh -cmd -autorun /zap/.zap/passive.yaml"
+                             zap.sh -cmd -autorun /zap/.zap/passive.yaml" \
+                            || true
                     """
                 }
             }
         }
     }
-
+}
     post {
         always {
             sh '''
-                docker stop juice-shop || true
-            '''
-            archiveArtifacts artifacts: 'zap-output/reports/**/*.*', fingerprint: true
+                        docker stop zap juice-shop
+                        docker rm zap
+                    '''
+            archiveArtifacts artifacts: 'reports/**/*.*', fingerprint: true
         }
     }
 }
