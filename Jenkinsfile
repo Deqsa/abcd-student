@@ -59,6 +59,7 @@ pipeline {
         archiveArtifacts artifacts: 'zap-output/semgrep-report.json', fingerprint: true
     }
 }
+}
 
     post {
         always {
