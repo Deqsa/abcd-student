@@ -42,14 +42,14 @@ pipeline {
         }
 */
         stage('[TruffleHog] Secret Scan') {
-            steps {
-                sh '''
-                    mkdir -p ${WORKSPACE}/zap-output
-trufflehog git --branch main --json . > ${WORKSPACE}/zap-output/trufflehog-report.json
-                '''
-                archiveArtifacts artifacts: '/mnt/c/Users/Don/zap-output/trufflehog-report.json', fingerprint: true
-            }
-        }
+    steps {
+        sh '''
+            mkdir -p ${WORKSPACE}/zap-output
+            trufflehog git --branch main --json https://github.com/Deqsa/abcd-student.git > ${WORKSPACE}/zap-output/trufflehog-report.json
+        '''
+        archiveArtifacts artifacts: 'zap-output/trufflehog-report.json', fingerprint: true
+    }
+}
 
         stage('[Semgrep] Static Code Analysis') {
             steps {
