@@ -1,4 +1,4 @@
-pipeline {More actions
+pipeline {
     agent any
     options {
         skipDefaultCheckout(true)
@@ -12,7 +12,6 @@ pipeline {More actions
                 git credentialsId: 'github-token', url: 'https://github.com/Deqsa/abcd-student', branch: 'main'
             }
         }
-
 
         stage('[ZAP] Baseline passive-scan') {
             steps {
