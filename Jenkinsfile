@@ -51,15 +51,14 @@ pipeline {
     }
 }
 
-        stage('[Semgrep] Static Code Analysis') {
-            steps {
-                sh '''
-                    semgrep --config p/default --json --output /mnt/c/Users/Don/zap-output/semgrep-report.json
-                '''
-                archiveArtifacts artifacts: '/mnt/c/Users/Don/zap-output/semgrep-report.json', fingerprint: true
-            }
-        }
+   stage('[Semgrep] Static Code Analysis') {
+    steps {
+        sh '''
+            semgrep --config p/default --json --output zap-output/semgrep-report.json
+        '''
+        archiveArtifacts artifacts: 'zap-output/semgrep-report.json', fingerprint: true
     }
+}
 
     post {
         always {
